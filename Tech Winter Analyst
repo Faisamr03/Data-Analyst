@@ -1,0 +1,103 @@
+# --- STEP 1: IMPORT & SETUP ---
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import matplotlib.dates as mdates
+
+# Pengaturan Gaya Visual
+sns.set_theme(style="whitegrid")
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['figure.dpi'] = 300 # High Res
+
+# --- STEP 2: LOAD & CLEAN DATA  ---
+# Load data 
+df = pd.read_csv('Asset/Cleaned_tech_layoffs.csv')
+
+# Konversi kolom tanggal 
+df['Date_layoffs'] = pd.to_datetime(df['Date_layoffs'], errors='coerce')
+
+# Filter Data: tanggal & jumlah PHK kosong
+df_clean = df.dropna(subset=['Date_layoffs', 'Laid_Off']).copy()
+
+# Laid_Off = integer
+df_clean['Laid_Off'] = df_clean['Laid_Off'].astype(int)
+
+print(f"Data siap dianalisis! Total baris bersih: {len(df_clean)}")
+print("-" * 30)
+
+
+# --- STEP 3: VISUALISASI Pos A (TOP SECTOR) ---
+# Aggregasi: Top 5 Industri
+top_industries = df_clean.groupby('Industry')['Laid_Off'].sum().sort_values(ascending=False).head(5)
+
+plt.figure(figsize=(10, 6))
+# Bar Chart Horizontal
+ax = sns.barplot(x=top_industries.values, y=top_industries.index, palette='viridis')
+
+# Data Label Center
+for container in ax.containers:
+    ax.bar_label(container, fmt='{:,.0f}', label_type='center', color='white', fontweight='bold')
+
+# Judul & Subjudul
+plt.suptitle('Siapa Korban Utama Tech Winter?', fontsize=16, fontweight='bold', x=0.125, y=0.96, ha='left')
+plt.title('Retail & Consumer menyumbang angka PHK terbesar (2020-2025)', fontsize=12, color='gray', loc='left', pad=20)
+plt.xlabel('Total Karyawan Terdampak')
+plt.ylabel(None) # Label Y hapus
+
+plt.tight_layout()
+plt.savefig('1_PosA_Top_Sektor.png', bbox_inches='tight') # Save gambar
+plt.show()
+
+
+# --- STEP 4: VISUALISASI Pos B (TIMELINE BADAI) ---
+# Aggregasi: Per Bulan
+monthly_trend = df_clean.set_index('Date_layoffs').resample('M')['Laid_Off'].sum()
+
+plt.figure(figsize=(12, 6))
+# Line Chart 
+plt.plot(monthly_trend.index, monthly_trend.values, color='#d62728', linewidth=2.5)
+plt.fill_between(monthly_trend.index, monthly_trend.values, color='#d62728', alpha=0.1)
+
+# Anotasi Puncak
+peak_date = monthly_trend.idxmax()
+peak_val = monthly_trend.max()
+plt.annotate(f'Puncak Badai: {peak_date.strftime("%b %Y")}',
+             xy=(peak_date, peak_val),
+             xytext=(peak_date, peak_val + 15000),
+             arrowprops=dict(facecolor='black', arrowstyle='->'),
+             ha='center', fontweight='bold')
+
+# Judul
+plt.suptitle('Anatomi Krisis: Kapan Badai Terjadi?', fontsize=16, fontweight='bold', x=0.125, y=0.96, ha='left')
+plt.title('Lonjakan drastis awal 2023, jauh melebihi era pandemi', fontsize=12, color='gray', loc='left', pad=20)
+plt.xlabel('Tahun')
+plt.ylabel('Jumlah PHK')
+
+plt.tight_layout()
+plt.savefig('2_PosB_timeline.png', bbox_inches='tight')
+plt.show()
+
+
+# --- STEP 5: VISUALISASI RESEP C (STARTUP VS RAKSASA) ---
+# Aggregasi: Top 8 Stage
+stage_layoffs = df_clean.groupby('Stage')['Laid_Off'].sum().sort_values(ascending=False).head(8)
+
+# Warna Khusus: Post-IPO Biru
+colors = ['#1f77b4' if x == 'Post-IPO' else '#bdc3c7' for x in stage_layoffs.index]
+
+plt.figure(figsize=(10, 6))
+ax = sns.barplot(x=stage_layoffs.values, y=stage_layoffs.index, palette=colors)
+
+# Label Data
+for container in ax.containers:
+    ax.bar_label(container, fmt='{:,.0f}', padding=3)
+
+# Judul
+plt.suptitle('Mitos Startup vs Realita Korporasi', fontsize=16, fontweight='bold', x=0.125, y=0.96, ha='left')
+plt.title('Perusahaan Tbk (Post-IPO) melakukan PHK massal demi efisiensi saham', fontsize=12, color='gray', loc='left', pad=20)
+plt.xlabel('Total Karyawan Terdampak')
+plt.ylabel(None)
+sns.despine(left=True, bottom=True) # Delete Garis 
+plt.tight_layout()
+plt.savefig('3_PosC_stage.png', bbox_inches='tight')
+plt.show()
